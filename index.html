@@ -32,6 +32,7 @@
       <button data-page="bookings" data-perm="bookings">الحجوزات</button>
       <button data-page="offers" data-perm="offers">الأسعار والباقات</button>
       <button data-page="ads" data-perm="ads">الإعلانات والفعاليات</button>
+      <button data-page="gallery" data-perm="gallery">المعرض</button>
     </nav>
     <button id="logout" class="logout">تسجيل الخروج</button>
   </aside>
@@ -88,6 +89,21 @@
         <label class="check"><input type="checkbox" id="adActive" checked> ظاهر للعملاء</label>
         <div class="actions"><button id="saveAd">حفظ الإعلان</button><button id="cancelAd" class="secondary">إلغاء</button></div>
         <div id="adMsg" class="msg"></div>
+      </div>
+    </section>
+    <section id="gallery" class="page hidden" data-perm="gallery">
+      <div class="panel"><div class="panel-head"><div><h3>المعرض</h3><small>إضافة وتعديل وحذف صور المعرض الظاهرة للعملاء</small></div><button id="newGallery">+ إضافة صورة</button></div>
+      <div id="galleryList">جارٍ التحميل...</div></div>
+      <div id="galleryEditor" class="panel hidden">
+        <h3 id="galleryEditorTitle">صورة جديدة</h3><input type="hidden" id="galleryId">
+        <label>العنوان بالعربي</label><input id="galleryTitleAr">
+        <label>العنوان بالإنجليزي</label><input id="galleryTitleEn">
+        <label>الصورة</label><div class="filebox"><input id="galleryFile" type="file" accept="image/*"><small>اختار صورة من جهازك. سيتم ضغطها تلقائيًا قبل الحفظ.</small><img id="galleryPreview" class="preview" alt="معاينة الصورة"></div>
+        <label>رابط الصورة (اختياري)</label><input id="galleryImage" placeholder="https://...">
+        <label>الترتيب</label><input id="gallerySort" type="number" min="0" value="0">
+        <label class="check"><input type="checkbox" id="galleryActive" checked> ظاهرة للعملاء</label>
+        <div class="actions"><button id="saveGallery">حفظ الصورة</button><button id="cancelGallery" class="secondary">إلغاء</button></div>
+        <div id="galleryMsg" class="msg"></div>
       </div>
     </section>
   </main>
