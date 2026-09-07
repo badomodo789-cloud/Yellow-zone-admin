@@ -1,29 +1,177 @@
 const SUPABASE_URL='https://wmqjlbrgdjgfjwopekup.supabase.co';
 const SUPABASE_KEY='sb_publishable_N3BSrFZfEidi-nN8hYbWFg_WbjMMsDn';
-const {createClient}=supabase;
-const db=createClient(SUPABASE_URL,SUPABASE_KEY);
-let me=null,currentPage='dashboard',sessionToken=localStorage.getItem('yz_admin_session');
+
+const USERS={
+  Eman:{password:'Yz!7Kp#42Lm@9Q',role:'full',label:'إيمان'},
+  Alaa:{password:'Yz#9Hm@64Qw!2P',role:'pricing_ads',label:'آلاء (Ads)'}
+};
+const perms={full:['stats','bookings','offers','ads'],pricing_ads:['offers','ads']};
+let current=null;
+
 const $=id=>document.getElementById(id);
-const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-const roleAllowed=role=>!role||me?.role==='full_admin'||role===me?.role;
-function applyAccess(){document.querySelectorAll('[data-role]').forEach(el=>el.classList.toggle('hidden',!roleAllowed(el.dataset.role)))}
-function showPage(id){const el=$(id);if(!el||!roleAllowed(el.dataset.role))return;document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));el.classList.remove('hidden');currentPage=id;const t={dashboard:['الرئيسية','نظرة سريعة على تشغيل المركز'],bookings:['الحجوزات','متابعة طلبات العملاء'],offers:['الأسعار والباقات','تعديلاتك تنعكس على الموقع العام'],ads:['الإعلانات والفعاليات','إدارة المحتوى الظاهر للعملاء']}[id];$('pageTitle').textContent=t[0];$('pageSubtitle').textContent=t[1];if(id==='dashboard')loadDashboard();if(id==='bookings')loadBookings();if(id==='offers')loadOffers();if(id==='ads')loadAds()}
-async function rpc(name,args={}){const {data,error}=await db.rpc(name,args);if(error)throw error;return data}
-async function loadMe(){if(!sessionToken){showLogin();return}try{const r=await rpc('admin_check',{p_token:sessionToken});if(!r?.length){throw new Error('unauthorized')}me=r[0];$('displayName').textContent=me.display_name;$('roleLabel').textContent=me.role==='full_admin'?'أدمن كامل':'الأسعار والإعلانات';$('avatar').textContent=(me.display_name||'؟').slice(0,1);$('loginScreen').classList.add('hidden');$('app').classList.remove('hidden');applyAccess();showPage('dashboard')}catch(e){sessionToken=null;localStorage.removeItem('yz_admin_session');showLogin()}}
-function showLogin(){$('loginScreen').classList.remove('hidden');$('app').classList.add('hidden')}
-async function login(){$('loginError').textContent='';const u=$('username').value.trim(),p=$('password').value;if(!u||!p)return;try{const r=await rpc('admin_login',{p_username:u,p_password:p});if(!r?.length)throw new Error('bad_login');sessionToken=r[0].session_token;localStorage.setItem('yz_admin_session',sessionToken);await loadMe()}catch(e){$('loginError').textContent='اسم المستخدم أو كلمة المرور غير صحيحة'}}
-async function loadDashboard(){if(me.role!=='full_admin')return;try{const d=await rpc('admin_dashboard',{p_token:sessionToken});$('dbStatus').textContent='متصل ويعمل';$('totalBookings').textContent=d.total_bookings||0;$('newBookings').textContent=d.new_bookings||0;$('confirmedBookings').textContent=d.confirmed_bookings||0;$('birthdayBookings').textContent=d.birthday_bookings||0;$('recentBookings').innerHTML=(d.recent||[]).map(x=>`<div class="row"><b>${esc(x.customer_name||'بدون اسم')}</b><br><span>${esc(x.booking_date||'')} · ${x.guests||0} أشخاص · ${esc(x.service_type||'')}</span></div>`).join('')||'لا توجد حجوزات'}catch(e){$('dbStatus').textContent='تعذر الاتصال';$('recentBookings').textContent='تعذر تحميل الحجوزات'}}
-async function loadBookings(){try{const data=await rpc('admin_bookings',{p_token:sessionToken});$('bookingCount').textContent=data.length;$('bookingsTable').innerHTML=data.map(x=>`<tr><td><strong>${esc(x.customer_name)}</strong></td><td>${esc(x.customer_phone)}</td><td>${esc(x.booking_date||'')}</td><td>${x.guests||0}</td><td>${esc(x.service_type||'')}</td><td><select onchange="setStatus(${x.id},this.value)"><option value="new" ${x.status==='new'?'selected':''}>جديد</option><option value="confirmed" ${x.status==='confirmed'?'selected':''}>مؤكد</option><option value="cancelled" ${x.status==='cancelled'?'selected':''}>ملغي</option></select></td><td>${esc(x.notes||'')}</td></tr>`).join('')}catch(e){$('bookingsTable').innerHTML='<tr><td colspan="7">تعذر تحميل الحجوزات</td></tr>'}}
-window.setStatus=async(id,status)=>{try{await rpc('admin_update_booking_status',{p_token:sessionToken,p_id:id,p_status:status});loadBookings();loadDashboard()}catch(e){alert('تعذر تحديث الحالة')}};
-async function loadOffers(){try{const data=await rpc('admin_offers',{p_token:sessionToken});$('offersGrid').innerHTML=data.map(x=>`<article class="entity-card"><strong>${esc(x.name_ar||x.name_en||x.title)}</strong><div class="price">${Number(x.price||0).toLocaleString('ar-SA')} ريال</div><p>${esc(x.description_ar||x.description_en||'')}</p><small>${esc(x.category||'')} · ${x.active?'ظاهر':'مخفي'}</small><div class="actions"><button onclick="editOffer(${x.id})">تعديل</button><button class="danger" onclick="deleteOffer(${x.id})">حذف</button></div></article>`).join('')||'لا توجد باقات'}catch(e){$('offersGrid').textContent='تعذر تحميل الأسعار'}}
-window.editOffer=async id=>{try{const data=(await rpc('admin_offers',{p_token:sessionToken})).find(x=>x.id===id);if(data)openOffer(data)}catch(e){alert('تعذر فتح الباقة')}};
-window.deleteOffer=async id=>{if(!confirm('حذف الباقة؟'))return;try{await rpc('admin_delete_offer',{p_token:sessionToken,p_id:id});loadOffers()}catch(e){alert('تعذر الحذف')}};
-function openOffer(x={}){modalEntity='offer';$('modalTitle').textContent=x.id?'تعديل الباقة':'إضافة باقة';$('entityId').value=x.id||'';$('offerAr').value=x.name_ar||'';$('offerEn').value=x.name_en||'';$('offerDescAr').value=x.description_ar||'';$('offerDescEn').value=x.description_en||'';$('offerPrice').value=x.price??'';$('offerCategory').value=x.category||'general';$('offerActive').checked=x.active!==false;$('offerFields').classList.remove('hidden');$('adFields').classList.add('hidden');$('modal').classList.remove('hidden')}
-async function saveOffer(){try{await rpc('admin_upsert_offer',{p_token:sessionToken,p_id:$('entityId').value?Number($('entityId').value):null,p_data:{name_ar:$('offerAr').value.trim(),name_en:$('offerEn').value.trim(),description_ar:$('offerDescAr').value.trim(),description_en:$('offerDescEn').value.trim(),price:Number($('offerPrice').value||0),category:$('offerCategory').value.trim(),active:$('offerActive').checked}});closeModal();loadOffers()}catch(e){$('formError').textContent='تعذر الحفظ: '+e.message}}
-async function loadAds(){try{const data=await rpc('admin_ads',{p_token:sessionToken});$('adsGrid').innerHTML=data.map(x=>`<article class="entity-card">${x.image_url?`<img src="${esc(x.image_url)}" alt="">`:''}<strong>${esc(x.title||'بدون عنوان')}</strong><p>${esc(x.text||'')}</p><small>${x.active?'ظاهر للعملاء':'مخفي'}</small><div class="actions"><button onclick="editAd('${x.id}')">تعديل</button><button class="danger" onclick="deleteAd('${x.id}')">حذف</button></div></article>`).join('')||'لا توجد إعلانات'}catch(e){$('adsGrid').textContent='تعذر تحميل الإعلانات'}}
-window.editAd=async id=>{try{const data=(await rpc('admin_ads',{p_token:sessionToken})).find(x=>x.id===id);if(data)openAd(data)}catch(e){alert('تعذر فتح الإعلان')}};
-window.deleteAd=async id=>{if(!confirm('حذف الإعلان؟'))return;try{await rpc('admin_delete_ad',{p_token:sessionToken,p_id:id});loadAds()}catch(e){alert('تعذر الحذف')}};
-function openAd(x={}){modalEntity='ad';$('modalTitle').textContent=x.id?'تعديل الإعلان':'إضافة إعلان / فعالية';$('entityId').value=x.id||'';$('adTitle').value=x.title||'';$('adBody').value=x.text||'';$('adImage').value=x.image_url||'';$('adTarget').value=x.target_url||'';$('adActive').checked=x.active!==false;$('offerFields').classList.add('hidden');$('adFields').classList.remove('hidden');$('modal').classList.remove('hidden')}
-async function saveAd(){try{await rpc('admin_upsert_ad',{p_token:sessionToken,p_id:$('entityId').value||null,p_data:{title:$('adTitle').value.trim(),text:$('adBody').value.trim(),image_url:$('adImage').value.trim()||null,target_url:$('adTarget').value.trim()||null,active:$('adActive').checked}});closeModal();loadAds()}catch(e){$('formError').textContent='تعذر الحفظ: '+e.message}}
-let modalEntity='offer';function closeModal(){$('modal').classList.add('hidden');$('formError').textContent=''}
-$('loginForm').addEventListener('submit',e=>{e.preventDefault();login()});$('logout').addEventListener('click',async()=>{try{if(sessionToken)await rpc('admin_logout',{p_token:sessionToken})}finally{sessionToken=null;localStorage.removeItem('yz_admin_session');location.reload()}});document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.go)));$('refresh').addEventListener('click',()=>showPage(currentPage));$('newOffer').addEventListener('click',()=>openOffer());$('newAd').addEventListener('click',()=>openAd());$('closeModal').addEventListener('click',closeModal);$('editorForm').addEventListener('submit',e=>{e.preventDefault();modalEntity==='offer'?saveOffer():saveAd()});loadMe();
+async function api(path,opts={}){
+  const r=await fetch(SUPABASE_URL+'/rest/v1/'+path,{
+    ...opts,
+    headers:{
+      apikey:SUPABASE_KEY,
+      Authorization:'Bearer '+SUPABASE_KEY,
+      'Content-Type':'application/json',
+      Prefer:'return=representation',
+      ...(opts.headers||{})
+    }
+  });
+  if(!r.ok) throw new Error(await r.text());
+  return r.status===204?null:r.json();
+}
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+
+function applyPermissions(){
+  document.querySelectorAll('[data-perm]').forEach(el=>{
+    const p=el.dataset.perm;
+    el.classList.toggle('hidden',!perms[current.role].includes(p));
+  });
+}
+
+function login(){
+  const u=$('username').value.trim(), p=$('password').value;
+  if(!USERS[u] || USERS[u].password!==p){
+    $('loginMsg').textContent='اسم المستخدم أو كلمة المرور غير صحيحة';
+    return;
+  }
+  current={...USERS[u],username:u};
+  sessionStorage.setItem('yz_admin',u);
+  $('loginView').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  $('userName').textContent=current.label;
+  $('welcomeName').textContent=current.label;
+  $('userRole').textContent=current.role==='full'?'أدمن كامل':'إدارة الأسعار والإعلانات';
+  applyPermissions();
+  showPage('dashboard');
+  loadAll();
+}
+
+function logout(){sessionStorage.removeItem('yz_admin');location.reload()}
+
+function showPage(id){
+  const el=$(id);
+  if(!el) return;
+  if(el.dataset.perm && !perms[current.role].includes(el.dataset.perm)) return;
+  document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));
+  el.classList.remove('hidden');
+  $('pageTitle').textContent={dashboard:'الرئيسية',bookings:'الحجوزات',offers:'الأسعار والباقات',ads:'الإعلانات والفعاليات'}[id]||'Yellow Zone';
+  if(id==='bookings')loadBookings();
+  if(id==='offers')loadOffers();
+  if(id==='ads')loadAds();
+}
+
+async function loadDashboard(){
+  if(current.role!=='full') return;
+  try{
+    const b=await api('bookings?select=id,status,service_type,customer_name,booking_date,created_at,guests&order=created_at.desc');
+    $('totalBookings').textContent=b.length;
+    $('newBookings').textContent=b.filter(x=>x.status==='new').length;
+    $('confirmedBookings').textContent=b.filter(x=>x.status==='confirmed').length;
+    $('birthdayBookings').textContent=b.filter(x=>(x.service_type||'').toLowerCase().includes('birthday')||(x.service_type||'').includes('عيد')).length;
+    $('recentBookings').innerHTML=b.slice(0,8).map(x=>`<div class="row"><div><b>${esc(x.customer_name||'بدون اسم')}</b><small>${esc(x.booking_date||'')} · ${x.guests||0} أشخاص</small></div><span class="tag">${esc(x.status||'new')}</span></div>`).join('')||'<div class="empty">لا توجد حجوزات حتى الآن</div>';
+  }catch(e){
+    $('recentBookings').innerHTML='<div class="error">تعذر تحميل الحجوزات</div>';
+  }
+}
+
+async function loadBookings(){
+  try{
+    const b=await api('bookings?select=id,booking_code,customer_name,customer_phone,booking_date,guests,status,service_type,notes,created_at&order=created_at.desc');
+    $('bookingsList').innerHTML=b.map(x=>`<div class="booking">
+      <div class="booking-top"><div><b>${esc(x.customer_name||'بدون اسم')}</b><small>${esc(x.booking_code||'')}</small></div><select onchange="setStatus(${x.id},this.value)">
+      <option value="new" ${x.status==='new'?'selected':''}>جديد</option><option value="confirmed" ${x.status==='confirmed'?'selected':''}>مؤكد</option><option value="cancelled" ${x.status==='cancelled'?'selected':''}>ملغي</option></select></div>
+      <div class="booking-grid"><span>الهاتف<br><b>${esc(x.customer_phone||'-')}</b></span><span>التاريخ<br><b>${esc(x.booking_date||'-')}</b></span><span>العدد<br><b>${x.guests||0}</b></span><span>الخدمة<br><b>${esc(x.service_type||'-')}</b></span></div>
+      ${x.notes?`<div class="notes">${esc(x.notes)}</div>`:''}
+    </div>`).join('')||'<div class="empty">لا توجد حجوزات</div>';
+  }catch(e){$('bookingsList').innerHTML='<div class="error">تعذر تحميل الحجوزات</div>'}
+}
+async function setStatus(id,status){
+  try{await api('bookings?id=eq.'+id,{method:'PATCH',body:JSON.stringify({status})});loadBookings();loadDashboard()}
+  catch(e){alert('تعذر تحديث حالة الحجز')}
+}
+
+async function loadOffers(){
+  try{
+    const o=await api('offers?select=id,name_ar,name_en,description_ar,description_en,price,active,category,sort_order&order=sort_order.asc,id.asc');
+    $('offersList').innerHTML=o.map(x=>`<div class="offer-row">
+      <div><b>${esc(x.name_ar||x.name_en||'بدون اسم')}</b><small>${esc(x.description_ar||'')}</small></div>
+      <div class="offer-right"><strong>${x.price??0} ريال</strong><span class="${x.active?'active':'inactive'}">${x.active?'ظاهر':'مخفي'}</span><button onclick="editOffer(${x.id})">تعديل</button></div>
+    </div>`).join('')||'<div class="empty">لا توجد باقات</div>';
+  }catch(e){$('offersList').innerHTML='<div class="error">تعذر تحميل الأسعار</div>'}
+}
+async function editOffer(id){
+  try{
+    const a=await api('offers?id=eq.'+id);
+    const x=a[0]; if(!x)return;
+    $('offerId').value=x.id;$('offerNameAr').value=x.name_ar||'';$('offerNameEn').value=x.name_en||'';
+    $('offerDescAr').value=x.description_ar||'';$('offerPrice').value=x.price??0;$('offerActive').checked=!!x.active;
+    $('offerEditor').classList.remove('hidden');$('offerMsg').textContent='';
+  }catch(e){alert('تعذر فتح الباقة')}
+}
+async function saveOffer(){
+  const id=$('offerId').value;
+  const body={name_ar:$('offerNameAr').value.trim(),name_en:$('offerNameEn').value.trim(),description_ar:$('offerDescAr').value.trim(),price:Number($('offerPrice').value)||0,active:$('offerActive').checked};
+  try{await api('offers?id=eq.'+id,{method:'PATCH',body:JSON.stringify(body)});$('offerEditor').classList.add('hidden');loadOffers()}
+  catch(e){$('offerMsg').textContent='تعذر الحفظ: '+e.message}
+}
+
+async function loadAds(){
+  try{
+    const a=await api('ads?select=id,title,text,image_url,active,created_at&order=sort_order.asc,created_at.desc');
+    $('adsList').innerHTML=a.map(x=>`<div class="ad-row">
+      <div class="ad-info">${x.image_url?`<img src="${esc(x.image_url)}" alt="">`:''}<div><b>${esc(x.title||'بدون عنوان')}</b><small>${esc(x.text||'')}</small></div></div>
+      <div class="ad-actions"><span class="${x.active?'active':'inactive'}">${x.active?'ظاهر للعملاء':'مخفي'}</span><button onclick="editAd('${x.id}')">تعديل</button><button class="danger" onclick="deleteAd('${x.id}')">حذف</button></div>
+    </div>`).join('')||'<div class="empty">لا توجد إعلانات</div>';
+  }catch(e){$('adsList').innerHTML='<div class="error">تعذر تحميل الإعلانات</div>'}
+}
+async function editAd(id){
+  try{
+    const a=await api('ads?id=eq.'+encodeURIComponent(id));const x=a[0];if(!x)return;
+    $('adId').value=x.id;$('adTitle').value=x.title||'';$('adBody').value=x.text||'';$('adImage').value=x.image_url||'';$('adActive').checked=!!x.active;
+    $('editorTitle').textContent='تعديل الإعلان';$('adEditor').classList.remove('hidden');$('adMsg').textContent='';
+  }catch(e){alert('تعذر فتح الإعلان')}
+}
+async function deleteAd(id){
+  if(!confirm('حذف الإعلان نهائيًا؟'))return;
+  try{await api('ads?id=eq.'+encodeURIComponent(id),{method:'DELETE'});loadAds()}
+  catch(e){alert('تعذر حذف الإعلان')}
+}
+async function saveAd(){
+  const body={title:$('adTitle').value.trim(),text:$('adBody').value.trim(),image_url:$('adImage').value.trim()||null,active:$('adActive').checked};
+  if(!body.title){$('adMsg').textContent='اكتب عنوان الإعلان';return}
+  try{
+    if($('adId').value) await api('ads?id=eq.'+encodeURIComponent($('adId').value),{method:'PATCH',body:JSON.stringify(body)});
+    else await api('ads',{method:'POST',body:JSON.stringify(body)});
+    $('adEditor').classList.add('hidden');loadAds();
+  }catch(e){$('adMsg').textContent='تعذر الحفظ: '+e.message}
+}
+
+function loadAll(){loadDashboard();loadOffers();loadAds()}
+
+$('loginForm').addEventListener('submit',e=>{e.preventDefault();login()});
+$('logout').addEventListener('click',logout);
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
+$('refreshAll').addEventListener('click',loadAll);
+$('refreshBookings').addEventListener('click',loadBookings);
+$('refreshOffers').addEventListener('click',loadOffers);
+$('newAd').addEventListener('click',()=>{
+  $('adId').value='';$('adTitle').value='';$('adBody').value='';$('adImage').value='';$('adActive').checked=true;
+  $('editorTitle').textContent='إعلان جديد';$('adEditor').classList.remove('hidden');$('adMsg').textContent='';
+});
+$('cancelAd').addEventListener('click',()=>$('adEditor').classList.add('hidden'));
+$('saveAd').addEventListener('click',saveAd);
+$('saveOffer').addEventListener('click',saveOffer);
+$('cancelOffer').addEventListener('click',()=>$('offerEditor').classList.add('hidden'));
+
+const remembered=sessionStorage.getItem('yz_admin');
+if(remembered&&USERS[remembered]){
+  current={...USERS[remembered],username:remembered};
+  $('loginView').classList.add('hidden');$('app').classList.remove('hidden');
+  $('userName').textContent=current.label;$('welcomeName').textContent=current.label;
+  $('userRole').textContent=current.role==='full'?'أدمن كامل':'إدارة الأسعار والإعلانات';
+  applyPermissions();showPage('dashboard');loadAll();
+}

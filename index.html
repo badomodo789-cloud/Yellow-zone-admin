@@ -1,25 +1,24 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Yellow Zone | لوحة الإدارة</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="loginScreen" class="login-screen">
+<div id="loginView" class="login-wrap">
   <div class="login-card">
     <div class="logo">YELLOW <span>ZONE</span></div>
     <h1>لوحة إدارة Yellow Zone</h1>
-    <p class="muted">تسجيل الدخول للموظفين المعتمدين فقط</p>
+    <p>تسجيل دخول الموظفين</p>
     <form id="loginForm">
       <label>اسم المستخدم</label>
-      <input id="username" autocomplete="username" placeholder="مثال: Eman" required>
+      <input id="username" autocomplete="username" required>
       <label>كلمة المرور</label>
       <input id="password" type="password" autocomplete="current-password" required>
-      <button class="primary full">دخول</button>
-      <div id="loginError" class="error"></div>
+      <button type="submit">دخول</button>
+      <div id="loginMsg" class="msg"></div>
     </form>
   </div>
 </div>
@@ -27,91 +26,72 @@
 <div id="app" class="hidden">
   <aside class="sidebar">
     <div class="logo">YELLOW <span>ZONE</span></div>
-    <div class="profile">
-      <div class="avatar" id="avatar">إ</div>
-      <div><strong id="displayName">إيمان</strong><small id="roleLabel"></small></div>
-    </div>
+    <div class="userbox"><b id="userName"></b><small id="userRole"></small></div>
     <nav>
       <button data-page="dashboard">الرئيسية</button>
-      <button data-page="bookings" data-role="full_admin">الحجوزات</button>
-      <button data-page="offers" data-role="pricing_ads">الأسعار والباقات</button>
-      <button data-page="ads" data-role="pricing_ads">الإعلانات والفعاليات</button>
+      <button data-page="bookings" data-perm="bookings">الحجوزات</button>
+      <button data-page="offers" data-perm="offers">الأسعار والباقات</button>
+      <button data-page="ads" data-perm="ads">الإعلانات والفعاليات</button>
     </nav>
     <button id="logout" class="logout">تسجيل الخروج</button>
   </aside>
 
-  <main class="content">
-    <header class="topbar">
-      <div>
-        <h2 id="pageTitle">الرئيسية</h2>
-        <p id="pageSubtitle">نظرة سريعة على تشغيل المركز</p>
-      </div>
-      <button id="refresh" class="ghost">تحديث البيانات</button>
-    </header>
+  <main class="main">
+    <header><h2 id="pageTitle">الرئيسية</h2><p>إدارة موقع Yellow Zone</p></header>
 
     <section id="dashboard" class="page">
-      <div class="hero">
-        <div><span class="eyebrow">YELLOW ZONE MANAGEMENT</span><h1>إدارة المركز من مكان واحد</h1><p>الحجوزات والأسعار والإعلانات، بصلاحيات منفصلة لكل حساب.</p></div>
-        <div class="hero-mark">YZ</div>
+      <div class="welcome">
+        <div><span>لوحة التحكم</span><h1>مرحبًا <b id="welcomeName"></b></h1><p>كل بيانات الموقع هنا في مكان واحد.</p></div>
+        <button id="refreshAll">تحديث البيانات</button>
       </div>
-      <div class="stats" data-role="full_admin">
-        <article><span>إجمالي الحجوزات</span><strong id="totalBookings">0</strong><small>كل الحجوزات المسجلة</small></article>
-        <article><span>الجديدة</span><strong id="newBookings">0</strong><small>تحتاج متابعة</small></article>
-        <article><span>المؤكدة</span><strong id="confirmedBookings">0</strong><small>حجوزات مؤكدة</small></article>
-        <article><span>أعياد الميلاد</span><strong id="birthdayBookings">0</strong><small>طلبات أعياد الميلاد</small></article>
+      <div class="cards" data-perm="stats">
+        <div class="stat"><small>إجمالي الحجوزات</small><strong id="totalBookings">0</strong></div>
+        <div class="stat"><small>حجوزات جديدة</small><strong id="newBookings">0</strong></div>
+        <div class="stat"><small>حجوزات مؤكدة</small><strong id="confirmedBookings">0</strong></div>
+        <div class="stat"><small>أعياد الميلاد</small><strong id="birthdayBookings">0</strong></div>
       </div>
-      <div class="grid-2" data-role="full_admin">
-        <div class="panel"><div class="panel-head"><h3>آخر الحجوزات</h3><button class="text-btn" data-go="bookings">عرض الكل</button></div><div id="recentBookings"></div></div>
-        <div class="panel"><h3>حالة النظام</h3><div class="status"><i></i><div><strong>الاتصال بقاعدة البيانات</strong><span id="dbStatus">جارٍ الفحص...</span></div></div><div class="status"><i></i><div><strong>صلاحية الحساب</strong><span id="accessStatus">مفعّلة</span></div></div></div>
+      <div class="grid2" data-perm="stats">
+        <div class="panel"><div class="panel-head"><h3>آخر الحجوزات</h3></div><div id="recentBookings">جارٍ التحميل...</div></div>
+        <div class="panel"><div class="panel-head"><h3>حالة النظام</h3></div><div class="system"><span class="dot"></span><b>متصل بقاعدة البيانات</b><small>Supabase</small></div><div class="system-note">الإعلانات والحجوزات متزامنة مع موقع العملاء.</div></div>
       </div>
-      <div class="panel" data-role="pricing_ads"><h3>اختصارات الإدارة</h3><div class="quick"><button data-go="offers">تعديل الأسعار والباقات</button><button data-go="ads">إدارة الإعلانات والفعاليات</button></div></div>
+      <div class="panel" id="limitedWelcome"><h3>مرحبًا بك</h3><p>استخدم القائمة الجانبية لإدارة الأقسام المسموح بها لحسابك.</p></div>
     </section>
 
-    <section id="bookings" class="page hidden" data-role="full_admin">
-      <div class="toolbar"><div><h3>الحجوزات</h3><p>عرض ومتابعة كل طلبات العملاء.</p></div><span id="bookingCount" class="count">0</span></div>
-      <div class="panel table-wrap"><table><thead><tr><th>العميل</th><th>الهاتف</th><th>التاريخ</th><th>العدد</th><th>الخدمة</th><th>الحالة</th><th>ملاحظات</th></tr></thead><tbody id="bookingsTable"></tbody></table></div>
+    <section id="bookings" class="page hidden" data-perm="bookings">
+      <div class="panel"><div class="panel-head"><div><h3>الحجوزات</h3><small>الحجوزات القادمة من موقع العملاء</small></div><button id="refreshBookings">تحديث</button></div>
+      <div id="bookingsList">جارٍ التحميل...</div></div>
     </section>
 
-    <section id="offers" class="page hidden" data-role="pricing_ads">
-      <div class="toolbar"><div><h3>الأسعار والباقات</h3><p>أي تعديل هنا ينعكس على الموقع العام.</p></div><button class="primary" id="newOffer">إضافة باقة</button></div>
-      <div id="offersGrid" class="cards-grid"></div>
+    <section id="offers" class="page hidden" data-perm="offers">
+      <div class="panel"><div class="panel-head"><div><h3>الأسعار والباقات</h3><small>تعديل الأسعار الظاهرة للعملاء</small></div><button id="refreshOffers">تحديث</button></div>
+      <div id="offersList">جارٍ التحميل...</div></div>
+      <div id="offerEditor" class="panel hidden">
+        <h3>تعديل الباقة</h3><input type="hidden" id="offerId">
+        <label>الاسم بالعربي</label><input id="offerNameAr">
+        <label>الاسم بالإنجليزي</label><input id="offerNameEn">
+        <label>الوصف بالعربي</label><textarea id="offerDescAr" rows="3"></textarea>
+        <label>السعر بالريال</label><input id="offerPrice" type="number" min="0">
+        <label class="check"><input id="offerActive" type="checkbox"> ظاهرة للعملاء</label>
+        <div class="actions"><button id="saveOffer">حفظ</button><button id="cancelOffer" class="secondary">إلغاء</button></div>
+        <div id="offerMsg" class="msg"></div>
+      </div>
     </section>
 
-    <section id="ads" class="page hidden" data-role="pricing_ads">
-      <div class="toolbar"><div><h3>الإعلانات والفعاليات</h3><p>إضافة وتعديل وحذف الإعلانات والفعاليات الظاهرة للعملاء.</p></div><button class="primary" id="newAd">إضافة إعلان / فعالية</button></div>
-      <div id="adsGrid" class="cards-grid"></div>
+    <section id="ads" class="page hidden" data-perm="ads">
+      <div class="panel"><div class="panel-head"><div><h3>الإعلانات والفعاليات</h3><small>كل تعديل يظهر على موقع العملاء</small></div><button id="newAd">+ إضافة إعلان</button></div>
+      <div id="adsList">جارٍ التحميل...</div></div>
+      <div id="adEditor" class="panel hidden">
+        <h3 id="editorTitle">إعلان جديد</h3><input type="hidden" id="adId">
+        <label>العنوان</label><input id="adTitle">
+        <label>النص</label><textarea id="adBody" rows="4"></textarea>
+        <label>رابط الصورة (اختياري)</label><input id="adImage" placeholder="https://...">
+        <label class="check"><input type="checkbox" id="adActive" checked> ظاهر للعملاء</label>
+        <div class="actions"><button id="saveAd">حفظ الإعلان</button><button id="cancelAd" class="secondary">إلغاء</button></div>
+        <div id="adMsg" class="msg"></div>
+      </div>
     </section>
   </main>
 </div>
-
-<div id="modal" class="modal hidden">
-  <div class="modal-card">
-    <button class="close" id="closeModal">×</button>
-    <h3 id="modalTitle"></h3>
-    <form id="editorForm">
-      <input type="hidden" id="entityId">
-      <div id="offerFields">
-        <label>اسم الباقة بالعربي<input id="offerAr"></label>
-        <label>اسم الباقة بالإنجليزي<input id="offerEn"></label>
-        <label>الوصف بالعربي<textarea id="offerDescAr"></textarea></label>
-        <label>الوصف بالإنجليزي<textarea id="offerDescEn"></textarea></label>
-        <label>السعر بالريال<input id="offerPrice" type="number" min="0" step="0.01"></label>
-        <label>التصنيف<input id="offerCategory" placeholder="general / trips / birthdays"></label>
-        <label class="switch"><input id="offerActive" type="checkbox"> <span>ظاهر للعملاء</span></label>
-      </div>
-      <div id="adFields" class="hidden">
-        <label>العنوان<input id="adTitle"></label>
-        <label>النص<textarea id="adBody" rows="5"></textarea></label>
-        <label>رابط الصورة<input id="adImage" placeholder="https://..."></label>
-        <label>الرابط عند الضغط (اختياري)<input id="adTarget"></label>
-        <label class="switch"><input id="adActive" type="checkbox"> <span>ظاهر للعملاء</span></label>
-      </div>
-      <div id="formError" class="error"></div>
-      <button class="primary full">حفظ التغييرات</button>
-    </form>
-  </div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="app.js"></script>
 </body>
 </html>
