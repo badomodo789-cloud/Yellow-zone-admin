@@ -1,0 +1,7 @@
+{
+  "name": "yellow-zone-admin-bootstrap",
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.0"
+  }
+}
