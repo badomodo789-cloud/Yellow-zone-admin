@@ -7,171 +7,55 @@ const USERS={
 };
 const perms={full:['stats','bookings','offers','ads'],pricing_ads:['offers','ads']};
 let current=null;
-
 const $=id=>document.getElementById(id);
+
 async function api(path,opts={}){
-  const r=await fetch(SUPABASE_URL+'/rest/v1/'+path,{
-    ...opts,
-    headers:{
-      apikey:SUPABASE_KEY,
-      Authorization:'Bearer '+SUPABASE_KEY,
-      'Content-Type':'application/json',
-      Prefer:'return=representation',
-      ...(opts.headers||{})
-    }
-  });
+  const r=await fetch(SUPABASE_URL+'/rest/v1/'+path,{...opts,headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json',Prefer:'return=representation',...(opts.headers||{})}});
   if(!r.ok) throw new Error(await r.text());
   return r.status===204?null:r.json();
 }
+async function rpc(name,args){
+  const r=await fetch(SUPABASE_URL+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(args)});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
-
-function applyPermissions(){
-  document.querySelectorAll('[data-perm]').forEach(el=>{
-    const p=el.dataset.perm;
-    el.classList.toggle('hidden',!perms[current.role].includes(p));
-  });
-}
-
+function authArgs(){return {p_username:current.username,p_password:current.password}}
+function applyPermissions(){document.querySelectorAll('[data-perm]').forEach(el=>{const p=el.dataset.perm;el.classList.toggle('hidden',!perms[current.role].includes(p))})}
 function login(){
-  const u=$('username').value.trim(), p=$('password').value;
-  if(!USERS[u] || USERS[u].password!==p){
-    $('loginMsg').textContent='اسم المستخدم أو كلمة المرور غير صحيحة';
-    return;
-  }
-  current={...USERS[u],username:u};
-  sessionStorage.setItem('yz_admin',u);
-  $('loginView').classList.add('hidden');
-  $('app').classList.remove('hidden');
-  $('userName').textContent=current.label;
-  $('welcomeName').textContent=current.label;
-  $('userRole').textContent=current.role==='full'?'أدمن كامل':'إدارة الأسعار والإعلانات';
-  applyPermissions();
-  showPage('dashboard');
-  loadAll();
+  const u=$('username').value.trim(),p=$('password').value;
+  if(!USERS[u]||USERS[u].password!==p){$('loginMsg').textContent='اسم المستخدم أو كلمة المرور غير صحيحة';return}
+  current={...USERS[u],username:u};sessionStorage.setItem('yz_admin',u);
+  $('loginView').classList.add('hidden');$('app').classList.remove('hidden');$('userName').textContent=current.label;$('welcomeName').textContent=current.label;$('userRole').textContent=current.role==='full'?'أدمن كامل':'إدارة الأسعار والإعلانات';applyPermissions();showPage('dashboard');loadAll();
 }
-
 function logout(){sessionStorage.removeItem('yz_admin');location.reload()}
-
-function showPage(id){
-  const el=$(id);
-  if(!el) return;
-  if(el.dataset.perm && !perms[current.role].includes(el.dataset.perm)) return;
-  document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));
-  el.classList.remove('hidden');
-  $('pageTitle').textContent={dashboard:'الرئيسية',bookings:'الحجوزات',offers:'الأسعار والباقات',ads:'الإعلانات والفعاليات'}[id]||'Yellow Zone';
-  if(id==='bookings')loadBookings();
-  if(id==='offers')loadOffers();
-  if(id==='ads')loadAds();
-}
+function showPage(id){const el=$(id);if(!el)return;if(el.dataset.perm&&!perms[current.role].includes(el.dataset.perm))return;document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));el.classList.remove('hidden');$('pageTitle').textContent={dashboard:'الرئيسية',bookings:'الحجوزات',offers:'الأسعار والباقات',ads:'الإعلانات والفعاليات'}[id]||'Yellow Zone';if(id==='bookings')loadBookings();if(id==='offers')loadOffers();if(id==='ads')loadAds()}
 
 async function loadDashboard(){
-  if(current.role!=='full') return;
-  try{
-    const b=await api('bookings?select=id,status,service_type,customer_name,booking_date,created_at,guests&order=created_at.desc');
-    $('totalBookings').textContent=b.length;
-    $('newBookings').textContent=b.filter(x=>x.status==='new').length;
-    $('confirmedBookings').textContent=b.filter(x=>x.status==='confirmed').length;
-    $('birthdayBookings').textContent=b.filter(x=>(x.service_type||'').toLowerCase().includes('birthday')||(x.service_type||'').includes('عيد')).length;
-    $('recentBookings').innerHTML=b.slice(0,8).map(x=>`<div class="row"><div><b>${esc(x.customer_name||'بدون اسم')}</b><small>${esc(x.booking_date||'')} · ${x.guests||0} أشخاص</small></div><span class="tag">${esc(x.status||'new')}</span></div>`).join('')||'<div class="empty">لا توجد حجوزات حتى الآن</div>';
-  }catch(e){
-    $('recentBookings').innerHTML='<div class="error">تعذر تحميل الحجوزات</div>';
-  }
+  if(current.role!=='full')return;
+  try{const b=await rpc('yz_admin_bookings',authArgs());const arr=Array.isArray(b)?b:[];$('totalBookings').textContent=arr.length;$('newBookings').textContent=arr.filter(x=>x.status==='new').length;$('confirmedBookings').textContent=arr.filter(x=>x.status==='confirmed').length;$('birthdayBookings').textContent=arr.filter(x=>(x.service_type||'').toLowerCase().includes('birthday')||(x.service_type||'').includes('عيد')).length;$('recentBookings').innerHTML=arr.slice(0,8).map(x=>`<div class="row"><div><b>${esc(x.customer_name||'بدون اسم')}</b><small>${esc(x.booking_date||'')} · ${x.guests||0} أشخاص</small></div><span class="tag">${esc(x.status||'new')}</span></div>`).join('')||'<div class="empty">لا توجد حجوزات حتى الآن</div>'}catch(e){$('recentBookings').innerHTML='<div class="error">تعذر تحميل الحجوزات</div>'}
 }
+async function loadBookings(){try{const b=await rpc('yz_admin_bookings',authArgs());const arr=Array.isArray(b)?b:[];$('bookingsList').innerHTML=arr.map(x=>`<div class="booking"><div class="booking-top"><div><b>${esc(x.customer_name||'بدون اسم')}</b><small>${esc(x.booking_code||'')}</small></div><select onchange="setStatus(${x.id},this.value)"><option value="new" ${x.status==='new'?'selected':''}>جديد</option><option value="confirmed" ${x.status==='confirmed'?'selected':''}>مؤكد</option><option value="cancelled" ${x.status==='cancelled'?'selected':''}>ملغي</option></select></div><div class="booking-grid"><span>الهاتف<br><b>${esc(x.customer_phone||'-')}</b></span><span>التاريخ<br><b>${esc(x.booking_date||'-')}</b></span><span>العدد<br><b>${x.guests||0}</b></span><span>الخدمة<br><b>${esc(x.service_type||'-')}</b></span></div>${x.notes?`<div class="notes">${esc(x.notes)}</div>`:''}</div>`).join('')||'<div class="empty">لا توجد حجوزات</div>'}catch(e){$('bookingsList').innerHTML='<div class="error">تعذر تحميل الحجوزات</div>'}}
+async function setStatus(id,status){try{await rpc('yz_admin_booking_status',{...authArgs(),p_id:id,p_status:status});loadBookings();loadDashboard()}catch(e){alert('تعذر تحديث حالة الحجز')}}
 
-async function loadBookings(){
-  try{
-    const b=await api('bookings?select=id,booking_code,customer_name,customer_phone,booking_date,guests,status,service_type,notes,created_at&order=created_at.desc');
-    $('bookingsList').innerHTML=b.map(x=>`<div class="booking">
-      <div class="booking-top"><div><b>${esc(x.customer_name||'بدون اسم')}</b><small>${esc(x.booking_code||'')}</small></div><select onchange="setStatus(${x.id},this.value)">
-      <option value="new" ${x.status==='new'?'selected':''}>جديد</option><option value="confirmed" ${x.status==='confirmed'?'selected':''}>مؤكد</option><option value="cancelled" ${x.status==='cancelled'?'selected':''}>ملغي</option></select></div>
-      <div class="booking-grid"><span>الهاتف<br><b>${esc(x.customer_phone||'-')}</b></span><span>التاريخ<br><b>${esc(x.booking_date||'-')}</b></span><span>العدد<br><b>${x.guests||0}</b></span><span>الخدمة<br><b>${esc(x.service_type||'-')}</b></span></div>
-      ${x.notes?`<div class="notes">${esc(x.notes)}</div>`:''}
-    </div>`).join('')||'<div class="empty">لا توجد حجوزات</div>';
-  }catch(e){$('bookingsList').innerHTML='<div class="error">تعذر تحميل الحجوزات</div>'}
-}
-async function setStatus(id,status){
-  try{await api('bookings?id=eq.'+id,{method:'PATCH',body:JSON.stringify({status})});loadBookings();loadDashboard()}
-  catch(e){alert('تعذر تحديث حالة الحجز')}
-}
+async function loadOffers(){try{const o=await api('offers?select=id,name_ar,name_en,description_ar,description_en,price,active,category,sort_order&order=sort_order.asc,id.asc');$('offersList').innerHTML=o.map(x=>`<div class="offer-row"><div><b>${esc(x.name_ar||x.name_en||'بدون اسم')}</b><small>${esc(x.description_ar||'')}</small></div><div class="offer-right"><strong>${x.price??0} ريال</strong><span class="${x.active?'active':'inactive'}">${x.active?'ظاهر':'مخفي'}</span><button onclick="editOffer(${x.id})">تعديل</button></div></div>`).join('')||'<div class="empty">لا توجد باقات</div>'}catch(e){$('offersList').innerHTML='<div class="error">تعذر تحميل الأسعار</div>'}}
+async function editOffer(id){try{const a=await api('offers?id=eq.'+id);const x=a[0];if(!x)return;$('offerId').value=x.id;$('offerNameAr').value=x.name_ar||'';$('offerNameEn').value=x.name_en||'';$('offerDescAr').value=x.description_ar||'';$('offerPrice').value=x.price??0;$('offerActive').checked=!!x.active;$('offerEditor').classList.remove('hidden');$('offerMsg').textContent=''}catch(e){alert('تعذر فتح الباقة')}}
+async function saveOffer(){const id=$('offerId').value;const body={...authArgs(),p_id:Number(id),p_name_ar:$('offerNameAr').value.trim(),p_name_en:$('offerNameEn').value.trim(),p_description_ar:$('offerDescAr').value.trim(),p_price:Number($('offerPrice').value)||0,p_active:$('offerActive').checked};try{await rpc('yz_admin_offer_update',body);$('offerEditor').classList.add('hidden');$('offerMsg').textContent='';await loadOffers()}catch(e){$('offerMsg').textContent='تعذر الحفظ: '+e.message}}
 
-async function loadOffers(){
-  try{
-    const o=await api('offers?select=id,name_ar,name_en,description_ar,description_en,price,active,category,sort_order&order=sort_order.asc,id.asc');
-    $('offersList').innerHTML=o.map(x=>`<div class="offer-row">
-      <div><b>${esc(x.name_ar||x.name_en||'بدون اسم')}</b><small>${esc(x.description_ar||'')}</small></div>
-      <div class="offer-right"><strong>${x.price??0} ريال</strong><span class="${x.active?'active':'inactive'}">${x.active?'ظاهر':'مخفي'}</span><button onclick="editOffer(${x.id})">تعديل</button></div>
-    </div>`).join('')||'<div class="empty">لا توجد باقات</div>';
-  }catch(e){$('offersList').innerHTML='<div class="error">تعذر تحميل الأسعار</div>'}
-}
-async function editOffer(id){
-  try{
-    const a=await api('offers?id=eq.'+id);
-    const x=a[0]; if(!x)return;
-    $('offerId').value=x.id;$('offerNameAr').value=x.name_ar||'';$('offerNameEn').value=x.name_en||'';
-    $('offerDescAr').value=x.description_ar||'';$('offerPrice').value=x.price??0;$('offerActive').checked=!!x.active;
-    $('offerEditor').classList.remove('hidden');$('offerMsg').textContent='';
-  }catch(e){alert('تعذر فتح الباقة')}
-}
-async function saveOffer(){
-  const id=$('offerId').value;
-  const body={name_ar:$('offerNameAr').value.trim(),name_en:$('offerNameEn').value.trim(),description_ar:$('offerDescAr').value.trim(),price:Number($('offerPrice').value)||0,active:$('offerActive').checked};
-  try{await api('offers?id=eq.'+id,{method:'PATCH',body:JSON.stringify(body)});$('offerEditor').classList.add('hidden');loadOffers()}
-  catch(e){$('offerMsg').textContent='تعذر الحفظ: '+e.message}
-}
-
-async function loadAds(){
-  try{
-    const a=await api('ads?select=id,title,text,image_url,active,created_at&order=sort_order.asc,created_at.desc');
-    $('adsList').innerHTML=a.map(x=>`<div class="ad-row">
-      <div class="ad-info">${x.image_url?`<img src="${esc(x.image_url)}" alt="">`:''}<div><b>${esc(x.title||'بدون عنوان')}</b><small>${esc(x.text||'')}</small></div></div>
-      <div class="ad-actions"><span class="${x.active?'active':'inactive'}">${x.active?'ظاهر للعملاء':'مخفي'}</span><button onclick="editAd('${x.id}')">تعديل</button><button class="danger" onclick="deleteAd('${x.id}')">حذف</button></div>
-    </div>`).join('')||'<div class="empty">لا توجد إعلانات</div>';
-  }catch(e){$('adsList').innerHTML='<div class="error">تعذر تحميل الإعلانات</div>'}
-}
-async function editAd(id){
-  try{
-    const a=await api('ads?id=eq.'+encodeURIComponent(id));const x=a[0];if(!x)return;
-    $('adId').value=x.id;$('adTitle').value=x.title||'';$('adBody').value=x.text||'';$('adImage').value=x.image_url||'';$('adActive').checked=!!x.active;
-    $('editorTitle').textContent='تعديل الإعلان';$('adEditor').classList.remove('hidden');$('adMsg').textContent='';
-  }catch(e){alert('تعذر فتح الإعلان')}
-}
-async function deleteAd(id){
-  if(!confirm('حذف الإعلان نهائيًا؟'))return;
-  try{await api('ads?id=eq.'+encodeURIComponent(id),{method:'DELETE'});loadAds()}
-  catch(e){alert('تعذر حذف الإعلان')}
-}
+async function loadAds(){try{const a=await api('ads?select=id,title,text,image_url,active,created_at&order=sort_order.asc,created_at.desc');$('adsList').innerHTML=a.map(x=>`<div class="ad-row"><div class="ad-info">${x.image_url?`<img src="${esc(x.image_url)}" alt="">`:''}<div><b>${esc(x.title||'بدون عنوان')}</b><small>${esc(x.text||'')}</small></div></div><div class="ad-actions"><span class="${x.active?'active':'inactive'}">${x.active?'ظاهر للعملاء':'مخفي'}</span><button onclick="editAd('${x.id}')">تعديل</button><button class="danger" onclick="deleteAd('${x.id}')">حذف</button></div></div>`).join('')||'<div class="empty">لا توجد إعلانات</div>'}catch(e){$('adsList').innerHTML='<div class="error">تعذر تحميل الإعلانات</div>'}}
+async function editAd(id){try{const a=await api('ads?id=eq.'+encodeURIComponent(id));const x=a[0];if(!x)return;$('adId').value=x.id;$('adTitle').value=x.title||'';$('adBody').value=x.text||'';$('adImage').value=x.image_url&&x.image_url.startsWith('http')?x.image_url:'';$('adFile').value='';$('preview').src=x.image_url||'';$('preview').style.display=x.image_url?'block':'none';$('adActive').checked=!!x.active;$('editorTitle').textContent='تعديل الإعلان';$('adEditor').classList.remove('hidden');$('adMsg').textContent=''}catch(e){alert('تعذر فتح الإعلان')}}
+async function deleteAd(id){if(!confirm('حذف الإعلان نهائيًا؟'))return;try{await rpc('yz_admin_ad_delete',{...authArgs(),p_id:id});loadAds()}catch(e){alert('تعذر حذف الإعلان')}}
+function resizeImage(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const max=1600,scale=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',.78))};img.onerror=reject;img.src=r.result};r.onerror=reject;r.readAsDataURL(file)})}
 async function saveAd(){
-  const body={title:$('adTitle').value.trim(),text:$('adBody').value.trim(),image_url:$('adImage').value.trim()||null,active:$('adActive').checked};
-  if(!body.title){$('adMsg').textContent='اكتب عنوان الإعلان';return}
-  try{
-    if($('adId').value) await api('ads?id=eq.'+encodeURIComponent($('adId').value),{method:'PATCH',body:JSON.stringify(body)});
-    else await api('ads',{method:'POST',body:JSON.stringify(body)});
-    $('adEditor').classList.add('hidden');loadAds();
-  }catch(e){$('adMsg').textContent='تعذر الحفظ: '+e.message}
+  const file=$('adFile').files[0];
+  if(file&&file.size>8*1024*1024){$('adMsg').textContent='الصورة كبيرة. اختار صورة أقل من 8MB.';return}
+  const body={...authArgs(),p_id:$('adId').value||null,p_title:$('adTitle').value.trim(),p_text:$('adBody').value.trim(),p_image_url:$('adImage').value.trim(),p_active:$('adActive').checked};
+  if(!body.p_title){$('adMsg').textContent='اكتب عنوان الإعلان';return}
+  try{if(file)body.p_image_url=await resizeImage(file);await rpc('yz_admin_ad_upsert',body);$('adEditor').classList.add('hidden');$('adMsg').textContent='';await loadAds()}catch(e){$('adMsg').textContent='تعذر الحفظ: '+e.message}
 }
-
 function loadAll(){loadDashboard();loadOffers();loadAds()}
-
-$('loginForm').addEventListener('submit',e=>{e.preventDefault();login()});
-$('logout').addEventListener('click',logout);
-document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
-$('refreshAll').addEventListener('click',loadAll);
-$('refreshBookings').addEventListener('click',loadBookings);
-$('refreshOffers').addEventListener('click',loadOffers);
-$('newAd').addEventListener('click',()=>{
-  $('adId').value='';$('adTitle').value='';$('adBody').value='';$('adImage').value='';$('adActive').checked=true;
-  $('editorTitle').textContent='إعلان جديد';$('adEditor').classList.remove('hidden');$('adMsg').textContent='';
-});
-$('cancelAd').addEventListener('click',()=>$('adEditor').classList.add('hidden'));
-$('saveAd').addEventListener('click',saveAd);
-$('saveOffer').addEventListener('click',saveOffer);
-$('cancelOffer').addEventListener('click',()=>$('offerEditor').classList.add('hidden'));
-
-const remembered=sessionStorage.getItem('yz_admin');
-if(remembered&&USERS[remembered]){
-  current={...USERS[remembered],username:remembered};
-  $('loginView').classList.add('hidden');$('app').classList.remove('hidden');
-  $('userName').textContent=current.label;$('welcomeName').textContent=current.label;
-  $('userRole').textContent=current.role==='full'?'أدمن كامل':'إدارة الأسعار والإعلانات';
-  applyPermissions();showPage('dashboard');loadAll();
-}
+$('loginForm').addEventListener('submit',e=>{e.preventDefault();login()});$('logout').addEventListener('click',logout);document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));$('refreshAll').addEventListener('click',loadAll);$('refreshBookings').addEventListener('click',loadBookings);$('refreshOffers').addEventListener('click',loadOffers);
+$('newAd').addEventListener('click',()=>{$('adId').value='';$('adTitle').value='';$('adBody').value='';$('adImage').value='';$('adFile').value='';$('preview').style.display='none';$('preview').src='';$('adActive').checked=true;$('editorTitle').textContent='إعلان جديد';$('adEditor').classList.remove('hidden');$('adMsg').textContent=''});
+$('adFile').addEventListener('change',()=>{const f=$('adFile').files[0];if(!f)return;const r=new FileReader();r.onload=e=>{$('preview').src=e.target.result;$('preview').style.display='block'};r.readAsDataURL(f)});
+$('cancelAd').addEventListener('click',()=>$('adEditor').classList.add('hidden'));$('saveAd').addEventListener('click',saveAd);$('saveOffer').addEventListener('click',saveOffer);$('cancelOffer').addEventListener('click',()=>$('offerEditor').classList.add('hidden'));
+const remembered=sessionStorage.getItem('yz_admin');if(remembered&&USERS[remembered]){current={...USERS[remembered],username:remembered};$('loginView').classList.add('hidden');$('app').classList.remove('hidden');$('userName').textContent=current.label;$('welcomeName').textContent=current.label;$('userRole').textContent=current.role==='full'?'أدمن كامل':'إدارة الأسعار والإعلانات';applyPermissions();showPage('dashboard');loadAll()}

@@ -84,7 +84,7 @@
         <h3 id="editorTitle">إعلان جديد</h3><input type="hidden" id="adId">
         <label>العنوان</label><input id="adTitle">
         <label>النص</label><textarea id="adBody" rows="4"></textarea>
-        <label>رابط الصورة (اختياري)</label><input id="adImage" placeholder="https://...">
+        <label>الصورة</label><div class="filebox"><input id="adFile" type="file" accept="image/*"><small>اختار صورة من جهازك، وسيتم تجهيزها تلقائيًا.</small><img id="preview" class="preview" alt="معاينة الصورة"></div><label>رابط الصورة (اختياري)</label><input id="adImage" placeholder="https://...">
         <label class="check"><input type="checkbox" id="adActive" checked> ظاهر للعملاء</label>
         <div class="actions"><button id="saveAd">حفظ الإعلان</button><button id="cancelAd" class="secondary">إلغاء</button></div>
         <div id="adMsg" class="msg"></div>
