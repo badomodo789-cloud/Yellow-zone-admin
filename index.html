@@ -64,13 +64,16 @@
     </section>
 
     <section id="offers" class="page hidden" data-perm="offers">
-      <div class="panel"><div class="panel-head"><div><h3>الأسعار والباقات</h3><small>تعديل الأسعار الظاهرة للعملاء</small></div><button id="refreshOffers">تحديث</button></div>
+      <div class="panel"><div class="panel-head"><div><h3>الأسعار والباقات</h3><small>تعديل الأسعار والاشتراكات والرحلات وأعياد الميلاد</small></div><div><button id="newOffer">+ إضافة باقة</button><button id="refreshOffers">تحديث</button></div></div>
       <div id="offersList">جارٍ التحميل...</div></div>
       <div id="offerEditor" class="panel hidden">
         <h3>تعديل الباقة</h3><input type="hidden" id="offerId">
         <label>الاسم بالعربي</label><input id="offerNameAr">
         <label>الاسم بالإنجليزي</label><input id="offerNameEn">
         <label>الوصف بالعربي</label><textarea id="offerDescAr" rows="3"></textarea>
+        <label>الوصف بالإنجليزي</label><textarea id="offerDescEn" rows="3"></textarea>
+        <label>القسم</label><select id="offerCategory"><option value="general">الأسعار الرئيسية</option><option value="subscriptions">الاشتراكات</option><option value="birthdays">أعياد الميلاد</option><option value="trips">الرحلات المدرسية</option></select>
+        <label>الترتيب</label><input id="offerSort" type="number" min="0" value="0">
         <label>السعر بالريال</label><input id="offerPrice" type="number" min="0">
         <label class="check"><input id="offerActive" type="checkbox"> ظاهرة للعملاء</label>
         <div class="actions"><button id="saveOffer">حفظ</button><button id="cancelOffer" class="secondary">إلغاء</button></div>
@@ -86,6 +89,8 @@
         <label>العنوان</label><input id="adTitle">
         <label>النص</label><textarea id="adBody" rows="4"></textarea>
         <label>الصورة</label><div class="filebox"><input id="adFile" type="file" accept="image/*"><small>اختار صورة من جهازك، وسيتم تجهيزها تلقائيًا.</small><img id="preview" class="preview" alt="معاينة الصورة"></div><label>رابط الصورة (اختياري)</label><input id="adImage" placeholder="https://...">
+        <label class="check"><input type="checkbox" id="adBookable"> إظهار زر «احجز» للفعالية</label>
+        <label>سعر الفعالية بالريال</label><input id="adPrice" type="number" min="0" value="0">
         <label class="check"><input type="checkbox" id="adActive" checked> ظاهر للعملاء</label>
         <div class="actions"><button id="saveAd">حفظ الإعلان</button><button id="cancelAd" class="secondary">إلغاء</button></div>
         <div id="adMsg" class="msg"></div>
